@@ -38,21 +38,33 @@ if (isset($_POST['form_sent']) && $action == 'in')
 
 	if (!empty($cur_user['password']))
 	{
-		// Represents the hash of the user's password
-		// If it's transparently changed in this function,
-		// this allows the cookie token to reflect the new hash
-		$user_password = $cur_user['password'];
+		$form_password_hash = pun_hash($form_password); // Will result in a SHA-1 hash
 
-		if (flux_password_verify($form_password, $user_password))
+		// If there is a salt in the database we have upgraded from 1.3-legacy though haven't yet logged in
+		if (!empty($cur_user['salt']))
 		{
-			$authorized = true;
+			$is_salt_authorized = pun_hash_equals(sha1($cur_user['salt'].sha1($form_password)), $cur_user['password']);
+			if ($is_salt_authorized) // 1.3 used sha1(salt.sha1(pass))
+ 			{
+				$authorized = true;
 
-			if (flux_password_needs_rehash($user_password))
-			{
-				$user_password = flux_password_hash($form_password);
-				$db->query('UPDATE '.$db->prefix.'users SET password=\''.$db->escape($user_password).'\' WHERE id='.$cur_user['id']) or error('Unable to update user password', __FILE__, __LINE__, $db->error());
+				$db->query('UPDATE '.$db->prefix.'users SET password=\''.$form_password_hash.'\', salt=NULL WHERE id='.$cur_user['id']) or error('Unable to update user password', __FILE__, __LINE__, $db->error());
 			}
 		}
+		// If the length isn't 40 then the password isn't using sha1, so it must be md5 from 1.2
+		else if (strlen($cur_user['password']) != 40)
+		{
+			$is_md5_authorized = pun_hash_equals(md5($form_password), $cur_user['password']);
+			if ($is_md5_authorized)
+			{
+				$authorized = true;
+
+				$db->query('UPDATE '.$db->prefix.'users SET password=\''.$form_password_hash.'\' WHERE id='.$cur_user['id']) or error('Unable to update user password', __FILE__, __LINE__, $db->error());
+			}
+		}
+		// Otherwise we should have a normal sha1 password
+		else
+			$authorized = pun_hash_equals($cur_user['password'], $form_password_hash);
 	}
 
 	if (!$authorized)
@@ -79,7 +91,7 @@ if (isset($_POST['form_sent']) && $action == 'in')
 		$db->query('DELETE FROM '.$db->prefix.'online WHERE ident=\''.$db->escape(get_remote_address()).'\'') or error('Unable to delete from online list', __FILE__, __LINE__, $db->error());
 
 		$expire = ($save_pass == '1') ? time() + 1209600 : time() + $pun_config['o_timeout_visit'];
-		pun_setcookie($cur_user['id'], $user_password, $expire);
+		pun_setcookie($cur_user['id'], $form_password_hash, $expire);
 
 		// Reset tracked topics
 		set_tracked_topics(null);
@@ -141,7 +153,7 @@ else if ($action == 'forget' || $action == 'forget_2')
 		{
 			$result = $db->query('SELECT id, username, last_email_sent FROM '.$db->prefix.'users WHERE email=\''.$db->escape($email).'\'') or error('Unable to fetch user info', __FILE__, __LINE__, $db->error());
 
-			if ($db->has_rows($result))
+			if ($db->num_rows($result))
 			{
 				// Load the "activate password" template
 				$mail_tpl = trim(file_get_contents(PUN_ROOT.'lang/'.$pun_user['language'].'/mail_templates/activate_password.tpl'));
@@ -295,26 +307,31 @@ if (!empty($errors))
 	<div class="box">
 		<form id="login" method="post" action="login.php?action=in" onsubmit="return process_form(this)">
 			<div class="inform">
+				<br/>
+				<h4><?php echo $lang_login['Login legend'] ?></h4>
+				
 				<fieldset>
-					<legend><?php echo $lang_login['Login legend'] ?></legend>
-					<div class="infldset">
-						<input type="hidden" name="form_sent" value="1" />
-						<input type="hidden" name="redirect_url" value="<?php echo pun_htmlspecialchars($redirect_url) ?>" />
-						<input type="hidden" name="csrf_token" value="<?php echo pun_csrf_token() ?>" />
-						<label class="conl required"><strong><?php echo $lang_common['Username'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br /><input type="text" name="req_username" value="<?php if (isset($_POST['req_username'])) echo pun_htmlspecialchars($_POST['req_username']); ?>" size="25" maxlength="25" tabindex="1" /><br /></label>
-						<label class="conl required"><strong><?php echo $lang_common['Password'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br /><input type="password" name="req_password" size="25" tabindex="2" /><br /></label>
+					<input type="hidden" name="form_sent" value="1" />
+					<input type="hidden" name="redirect_url" value="<?php echo pun_htmlspecialchars($redirect_url) ?>" />
+					<input type="hidden" name="csrf_token" value="<?php echo pun_csrf_token() ?>" />
+					<label class="conl required"><strong><?php echo $lang_common['Username'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br /><input type="text" name="req_username" value="<?php if (isset($_POST['req_username'])) echo pun_htmlspecialchars($_POST['req_username']); ?>" size="25" maxlength="25" tabindex="1" /><br /></label>
+					<br/>
+					
+					<label class="conl required"><strong><?php echo $lang_common['Password'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br /><input type="password" name="req_password" size="25" tabindex="2" /><br /></label>
 
-						<div class="rbox clearb">
-							<label><input type="checkbox" name="save_pass" value="1"<?php if (isset($_POST['save_pass'])) echo ' checked="checked"'; ?> tabindex="3" /><?php echo $lang_login['Remember me'] ?><br /></label>
-						</div>
-
-						<p class="clearb"><?php echo $lang_login['Login info'] ?></p>
-						<p class="actions"><span><a href="register.php" tabindex="5"><?php echo $lang_login['Not registered'] ?></a></span> <span><a href="login.php?action=forget" tabindex="6"><?php echo $lang_login['Forgotten pass'] ?></a></span></p>
+					<div class="rbox clearb">
+						<label><input type="checkbox" name="save_pass" value="1"<?php if (isset($_POST['save_pass'])) echo ' checked="checked"'; ?> tabindex="3" /><?php echo $lang_login['Remember me'] ?><br /></label>
 					</div>
+
+					<p class="clearb"><?php echo $lang_login['Login info'] ?></p>
+					<p class="actions"><span><a href="register.php" tabindex="5"><?php echo $lang_login['Not registered'] ?></a></span> <span><a href="login.php?action=forget" tabindex="6"><?php echo $lang_login['Forgotten pass'] ?></a></span></p>
+
 				</fieldset>
+			
+				<br/>
+				<?php flux_hook('login_before_submit') ?>
+				<input type="submit" name="login" value="<?php echo $lang_common['Login'] ?>" tabindex="4" />
 			</div>
-<?php flux_hook('login_before_submit') ?>
-			<p class="buttons"><input type="submit" name="login" value="<?php echo $lang_common['Login'] ?>" tabindex="4" /></p>
 		</form>
 	</div>
 </div>

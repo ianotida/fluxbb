@@ -70,7 +70,7 @@ if (isset($_POST['form_sent']))
 	// Check that someone from this IP didn't register a user within the last hour (DoS prevention)
 	$result = $db->query('SELECT 1 FROM '.$db->prefix.'users WHERE registration_ip=\''.$db->escape(get_remote_address()).'\' AND registered>'.(time() - 3600)) or error('Unable to fetch user info', __FILE__, __LINE__, $db->error());
 
-	if ($db->has_rows($result))
+	if ($db->num_rows($result))
 		message($lang_register['Registration flood']);
 
 
@@ -121,7 +121,7 @@ if (isset($_POST['form_sent']))
 	$dupe_list = array();
 
 	$result = $db->query('SELECT username FROM '.$db->prefix.'users WHERE email=\''.$db->escape($email1).'\'') or error('Unable to fetch user info', __FILE__, __LINE__, $db->error());
-	if ($db->has_rows($result))
+	if ($db->num_rows($result))
 	{
 		if ($pun_config['p_allow_dupe_email'] == '0')
 			$errors[] = $lang_prof_reg['Dupe email'];
@@ -157,10 +157,10 @@ if (isset($_POST['form_sent']))
 		$now = time();
 
 		$intial_group_id = ($pun_config['o_regs_verify'] == '0') ? $pun_config['o_default_user_group'] : PUN_UNVERIFIED;
-		$password_hash = flux_password_hash($password1);
+		$password_hash = pun_hash($password1);
 
 		// Add the user
-		$db->query('INSERT INTO '.$db->prefix.'users (username, group_id, password, email, email_setting, timezone, dst, language, style, registered, registration_ip, last_visit) VALUES(\''.$db->escape($username).'\', '.$intial_group_id.', \''.$db->escape($password_hash).'\', \''.$db->escape($email1).'\', '.$email_setting.', '.$timezone.' , '.$dst.', \''.$db->escape($language).'\', \''.$pun_config['o_default_style'].'\', '.$now.', \''.$db->escape(get_remote_address()).'\', '.$now.')') or error('Unable to create user', __FILE__, __LINE__, $db->error());
+		$db->query('INSERT INTO '.$db->prefix.'users (username, group_id, password, email, email_setting, timezone, dst, language, style, registered, registration_ip, last_visit) VALUES(\''.$db->escape($username).'\', '.$intial_group_id.', \''.$password_hash.'\', \''.$db->escape($email1).'\', '.$email_setting.', '.$timezone.' , '.$dst.', \''.$db->escape($language).'\', \''.$pun_config['o_default_style'].'\', '.$now.', \''.$db->escape(get_remote_address()).'\', '.$now.')') or error('Unable to create user', __FILE__, __LINE__, $db->error());
 		$new_uid = $db->insert_id();
 
 		if ($pun_config['o_regs_verify'] == '0')
@@ -307,106 +307,103 @@ if (!empty($errors))
 	<div class="box">
 		<form id="register" method="post" action="register.php?action=register" onsubmit="this.register.disabled=true;if(process_form(this)){return true;}else{this.register.disabled=false;return false;}">
 			<div class="inform">
-				<div class="forminfo">
-					<h3><?php echo $lang_common['Important information'] ?></h3>
-					<p><?php echo $lang_register['Desc 1'] ?></p>
-					<p><?php echo $lang_register['Desc 2'] ?></p>
-				</div>
+				
+				<h3><?php echo $lang_common['Important information'] ?></h3>
+				<p><?php echo $lang_register['Desc 1'] ?></p>
+				<p><?php echo $lang_register['Desc 2'] ?></p>
+				<br/>
 				<fieldset>
-					<legend><?php echo $lang_register['Username legend'] ?></legend>
-					<div class="infldset">
-						<input type="hidden" name="form_sent" value="1" />
-						<label class="required"><strong><?php echo $lang_common['Username'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br /><input type="text" name="req_user" value="<?php if (isset($_POST['req_user'])) echo pun_htmlspecialchars($_POST['req_user']); ?>" size="25" maxlength="25" /><br /></label>
-					</div>
+					<input type="hidden" name="form_sent" value="1" />
+					<label class="required"><strong><?php echo $lang_common['Username'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br />
+					<input type="text" name="req_user" style="width:250px;" value="<?php if (isset($_POST['req_user'])) echo pun_htmlspecialchars($_POST['req_user']); ?>" size="25" maxlength="25" /><br />
+					</label>
+					<p class="clearb"><?php echo $lang_register['Username legend'] ?></p>
 				</fieldset>
-			</div>
-<?php if ($pun_config['o_regs_verify'] == '0'): ?>			<div class="inform">
+		
+				<br/>
+<?php if ($pun_config['o_regs_verify'] == '0'): ?>			
+			
 				<fieldset>
-					<legend><?php echo $lang_register['Pass legend'] ?></legend>
-					<div class="infldset">
-						<label class="conl required"><strong><?php echo $lang_common['Password'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br /><input type="password" name="req_password1" value="<?php if (isset($_POST['req_password1'])) echo pun_htmlspecialchars($_POST['req_password1']); ?>" size="16" /><br /></label>
-						<label class="conl required"><strong><?php echo $lang_prof_reg['Confirm pass'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br /><input type="password" name="req_password2" value="<?php if (isset($_POST['req_password2'])) echo pun_htmlspecialchars($_POST['req_password2']); ?>" size="16" /><br /></label>
-						<p class="clearb"><?php echo $lang_register['Pass info'] ?></p>
-					</div>
+					<label class="conl required"><strong><?php echo $lang_common['Password'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br />
+					<input type="password" name="req_password1" style="width:165px;" value="<?php if (isset($_POST['req_password1'])) echo pun_htmlspecialchars($_POST['req_password1']); ?>" size="16" /><br /></label>
+					<label class="conl required"><strong><?php echo $lang_prof_reg['Confirm pass'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br />
+					<input type="password" name="req_password2" style="width:165px;" value="<?php if (isset($_POST['req_password2'])) echo pun_htmlspecialchars($_POST['req_password2']); ?>" size="16" /><br /></label>
+					<p class="clearb"><?php echo $lang_register['Pass info'] ?></p>
 				</fieldset>
-			</div>
-<?php endif; ?>			<div class="inform">
-				<fieldset>
-					<legend><?php echo ($pun_config['o_regs_verify'] == '1') ? $lang_prof_reg['Email legend 2'] : $lang_prof_reg['Email legend'] ?></legend>
-					<div class="infldset">
-<?php if ($pun_config['o_regs_verify'] == '1'): ?>						<p><?php echo $lang_register['Email info'] ?></p>
-<?php endif; ?>						<label class="required"><strong><?php echo $lang_common['Email'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br />
-						<input type="text" name="req_email1" value="<?php if (isset($_POST['req_email1'])) echo pun_htmlspecialchars($_POST['req_email1']); ?>" size="50" maxlength="80" /><br /></label>
+			
+<?php endif; ?>			
+				<br/>
+				<fieldset>				
+<?php if ($pun_config['o_regs_verify'] == '1'): ?><p><?php echo $lang_register['Email info'] ?></p>
+<?php endif; ?>			<label class="required"><strong><?php echo $lang_common['Email'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br />
+						<input type="text" name="req_email1" style="width:430px;" value="<?php if (isset($_POST['req_email1'])) echo pun_htmlspecialchars($_POST['req_email1']); ?>" size="50" maxlength="80" /><br /></label>
 <?php if ($pun_config['o_regs_verify'] == '1'): ?>						<label class="required"><strong><?php echo $lang_register['Confirm email'] ?> <span><?php echo $lang_common['Required'] ?></span></strong><br />
-						<input type="text" name="req_email2" value="<?php if (isset($_POST['req_email2'])) echo pun_htmlspecialchars($_POST['req_email2']); ?>" size="50" maxlength="80" /><br /></label>
-<?php endif; ?>					</div>
+						<input type="text" name="req_email2" style="width:430px;" value="<?php if (isset($_POST['req_email2'])) echo pun_htmlspecialchars($_POST['req_email2']); ?>" size="50" maxlength="80" /><br /></label>
+<?php endif; ?>			<p class="clearb"><?php echo ($pun_config['o_regs_verify'] == '1') ? $lang_prof_reg['Email legend 2'] : $lang_prof_reg['Email legend'] ?></p>
+					
 				</fieldset>
-			</div>
-			<div class="inform">
+			
+				<br/>
 				<fieldset>
-					<legend><?php echo $lang_prof_reg['Localisation legend'] ?></legend>
-					<div class="infldset">
-						<p><?php echo $lang_prof_reg['Time zone info'] ?></p>
-						<label><?php echo $lang_prof_reg['Time zone']."\n" ?>
-						<br /><select id="time_zone" name="timezone">
-							<option value="-12"<?php if ($timezone == -12) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-12:00'] ?></option>
-							<option value="-11"<?php if ($timezone == -11) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-11:00'] ?></option>
-							<option value="-10"<?php if ($timezone == -10) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-10:00'] ?></option>
-							<option value="-9.5"<?php if ($timezone == -9.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-09:30'] ?></option>
-							<option value="-9"<?php if ($timezone == -9) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-09:00'] ?></option>
-							<option value="-8.5"<?php if ($timezone == -8.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-08:30'] ?></option>
-							<option value="-8"<?php if ($timezone == -8) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-08:00'] ?></option>
-							<option value="-7"<?php if ($timezone == -7) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-07:00'] ?></option>
-							<option value="-6"<?php if ($timezone == -6) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-06:00'] ?></option>
-							<option value="-5"<?php if ($timezone == -5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-05:00'] ?></option>
-							<option value="-4"<?php if ($timezone == -4) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-04:00'] ?></option>
-							<option value="-3.5"<?php if ($timezone == -3.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-03:30'] ?></option>
-							<option value="-3"<?php if ($timezone == -3) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-03:00'] ?></option>
-							<option value="-2"<?php if ($timezone == -2) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-02:00'] ?></option>
-							<option value="-1"<?php if ($timezone == -1) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-01:00'] ?></option>
-							<option value="0"<?php if ($timezone == 0) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC'] ?></option>
-							<option value="1"<?php if ($timezone == 1) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+01:00'] ?></option>
-							<option value="2"<?php if ($timezone == 2) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+02:00'] ?></option>
-							<option value="3"<?php if ($timezone == 3) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+03:00'] ?></option>
-							<option value="3.5"<?php if ($timezone == 3.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+03:30'] ?></option>
-							<option value="4"<?php if ($timezone == 4) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+04:00'] ?></option>
-							<option value="4.5"<?php if ($timezone == 4.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+04:30'] ?></option>
-							<option value="5"<?php if ($timezone == 5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+05:00'] ?></option>
-							<option value="5.5"<?php if ($timezone == 5.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+05:30'] ?></option>
-							<option value="5.75"<?php if ($timezone == 5.75) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+05:45'] ?></option>
-							<option value="6"<?php if ($timezone == 6) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+06:00'] ?></option>
-							<option value="6.5"<?php if ($timezone == 6.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+06:30'] ?></option>
-							<option value="7"<?php if ($timezone == 7) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+07:00'] ?></option>
-							<option value="8"<?php if ($timezone == 8) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+08:00'] ?></option>
-							<option value="8.75"<?php if ($timezone == 8.75) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+08:45'] ?></option>
-							<option value="9"<?php if ($timezone == 9) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+09:00'] ?></option>
-							<option value="9.5"<?php if ($timezone == 9.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+09:30'] ?></option>
-							<option value="10"<?php if ($timezone == 10) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+10:00'] ?></option>
-							<option value="10.5"<?php if ($timezone == 10.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+10:30'] ?></option>
-							<option value="11"<?php if ($timezone == 11) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+11:00'] ?></option>
-							<option value="11.5"<?php if ($timezone == 11.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+11:30'] ?></option>
-							<option value="12"<?php if ($timezone == 12) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+12:00'] ?></option>
-							<option value="12.75"<?php if ($timezone == 12.75) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+12:45'] ?></option>
-							<option value="13"<?php if ($timezone == 13) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+13:00'] ?></option>
-							<option value="14"<?php if ($timezone == 14) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+14:00'] ?></option>
-						</select>
-						<br /></label>
-						<div class="rbox">
-							<label><input type="checkbox" name="dst" value="1"<?php if ($dst == '1') echo ' checked="checked"' ?> /><?php echo $lang_prof_reg['DST'] ?><br /></label>
-						</div>
+					<p><?php echo $lang_prof_reg['Time zone info'] ?></p>
+					<label><?php echo $lang_prof_reg['Time zone']."\n" ?>
+					<br />
+					<select id="time_zone" name="timezone" style="width:450px;">
+						<option value="-12"<?php if ($timezone == -12) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-12:00'] ?></option>
+						<option value="-11"<?php if ($timezone == -11) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-11:00'] ?></option>
+						<option value="-10"<?php if ($timezone == -10) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-10:00'] ?></option>
+						<option value="-9.5"<?php if ($timezone == -9.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-09:30'] ?></option>
+						<option value="-9"<?php if ($timezone == -9) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-09:00'] ?></option>
+						<option value="-8.5"<?php if ($timezone == -8.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-08:30'] ?></option>
+						<option value="-8"<?php if ($timezone == -8) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-08:00'] ?></option>
+						<option value="-7"<?php if ($timezone == -7) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-07:00'] ?></option>
+						<option value="-6"<?php if ($timezone == -6) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-06:00'] ?></option>
+						<option value="-5"<?php if ($timezone == -5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-05:00'] ?></option>
+						<option value="-4"<?php if ($timezone == -4) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-04:00'] ?></option>
+						<option value="-3.5"<?php if ($timezone == -3.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-03:30'] ?></option>
+						<option value="-3"<?php if ($timezone == -3) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-03:00'] ?></option>
+						<option value="-2"<?php if ($timezone == -2) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-02:00'] ?></option>
+						<option value="-1"<?php if ($timezone == -1) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC-01:00'] ?></option>
+						<option value="0"<?php if ($timezone == 0) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC'] ?></option>
+						<option value="1"<?php if ($timezone == 1) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+01:00'] ?></option>
+						<option value="2"<?php if ($timezone == 2) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+02:00'] ?></option>
+						<option value="3"<?php if ($timezone == 3) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+03:00'] ?></option>
+						<option value="3.5"<?php if ($timezone == 3.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+03:30'] ?></option>
+						<option value="4"<?php if ($timezone == 4) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+04:00'] ?></option>
+						<option value="4.5"<?php if ($timezone == 4.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+04:30'] ?></option>
+						<option value="5"<?php if ($timezone == 5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+05:00'] ?></option>
+						<option value="5.5"<?php if ($timezone == 5.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+05:30'] ?></option>
+						<option value="5.75"<?php if ($timezone == 5.75) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+05:45'] ?></option>
+						<option value="6"<?php if ($timezone == 6) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+06:00'] ?></option>
+						<option value="6.5"<?php if ($timezone == 6.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+06:30'] ?></option>
+						<option value="7"<?php if ($timezone == 7) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+07:00'] ?></option>
+						<option value="8"<?php if ($timezone == 8) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+08:00'] ?></option>
+						<option value="8.75"<?php if ($timezone == 8.75) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+08:45'] ?></option>
+						<option value="9"<?php if ($timezone == 9) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+09:00'] ?></option>
+						<option value="9.5"<?php if ($timezone == 9.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+09:30'] ?></option>
+						<option value="10"<?php if ($timezone == 10) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+10:00'] ?></option>
+						<option value="10.5"<?php if ($timezone == 10.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+10:30'] ?></option>
+						<option value="11"<?php if ($timezone == 11) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+11:00'] ?></option>
+						<option value="11.5"<?php if ($timezone == 11.5) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+11:30'] ?></option>
+						<option value="12"<?php if ($timezone == 12) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+12:00'] ?></option>
+						<option value="12.75"<?php if ($timezone == 12.75) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+12:45'] ?></option>
+						<option value="13"<?php if ($timezone == 13) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+13:00'] ?></option>
+						<option value="14"<?php if ($timezone == 14) echo ' selected="selected"' ?>><?php echo $lang_prof_reg['UTC+14:00'] ?></option>
+					</select>
+					<br /></label>
+					<div class="rbox">
+						<label><input type="checkbox" name="dst" value="1"<?php if ($dst == '1') echo ' checked="checked"' ?> /><?php echo $lang_prof_reg['DST'] ?><br /></label>
+					</div>
 <?php
-
 		$languages = forum_list_langs();
 
 		// Only display the language selection box if there's more than one language available
 		if (count($languages) > 1)
 		{
-
 ?>
-							<label><?php echo $lang_prof_reg['Language'] ?>
-							<br /><select name="language">
+					<label><?php echo $lang_prof_reg['Language'] ?>
+					<br /><select name="language">
 <?php
-
 			foreach ($languages as $temp)
 			{
 				if ($pun_config['o_default_lang'] == $temp)
@@ -422,24 +419,23 @@ if (!empty($errors))
 
 		}
 ?>
-					</div>
 				</fieldset>
-			</div>
-			<div class="inform">
+				
+				<br/>
 				<fieldset>
-					<legend><?php echo $lang_prof_reg['Privacy options legend'] ?></legend>
-					<div class="infldset">
-						<p><?php echo $lang_prof_reg['Email setting info'] ?></p>
-						<div class="rbox">
-							<label><input type="radio" name="email_setting" value="0"<?php if ($email_setting == '0') echo ' checked="checked"' ?> /><?php echo $lang_prof_reg['Email setting 1'] ?><br /></label>
-							<label><input type="radio" name="email_setting" value="1"<?php if ($email_setting == '1') echo ' checked="checked"' ?> /><?php echo $lang_prof_reg['Email setting 2'] ?><br /></label>
-							<label><input type="radio" name="email_setting" value="2"<?php if ($email_setting == '2') echo ' checked="checked"' ?> /><?php echo $lang_prof_reg['Email setting 3'] ?><br /></label>
-						</div>
+					<p><?php echo $lang_prof_reg['Email setting info'] ?></p>
+					<div class="rbox">
+						<label><input type="radio" name="email_setting" value="0"<?php if ($email_setting == '0') echo ' checked="checked"' ?> /><?php echo $lang_prof_reg['Email setting 1'] ?><br /></label>
+						<label><input type="radio" name="email_setting" value="1"<?php if ($email_setting == '1') echo ' checked="checked"' ?> /><?php echo $lang_prof_reg['Email setting 2'] ?><br /></label>
+						<label><input type="radio" name="email_setting" value="2"<?php if ($email_setting == '2') echo ' checked="checked"' ?> /><?php echo $lang_prof_reg['Email setting 3'] ?><br /></label>
 					</div>
+					
 				</fieldset>
+			
+				<br/>
+				<?php flux_hook('register_before_submit'); ?>
+				<input type="submit" name="register" value="<?php echo $lang_register['Register'] ?>" />
 			</div>
-<?php flux_hook('register_before_submit'); ?>
-			<p class="buttons"><input type="submit" name="register" value="<?php echo $lang_register['Register'] ?>" /></p>
 		</form>
 	</div>
 </div>
