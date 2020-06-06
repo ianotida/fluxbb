@@ -7,8 +7,8 @@
  */
 
 // Make sure we have built in support for MySQL
-if (!function_exists('mysqli_connect'))
-	exit('This PHP environment doesn\'t have Improved MySQL (mysqli) support built in. Improved MySQL support is required if you want to use a MySQL 4.1 (or later) database to run this forum. Consult the PHP documentation for further assistance.');
+if (!function_exists('mysql_connect'))
+	exit('This PHP environment doesn\'t have MySQL support built in. MySQL support is required if you want to use a MySQL database to run this forum. Consult the PHP documentation for further assistance.');
 
 
 class DBLayer
@@ -16,6 +16,7 @@ class DBLayer
 	var $prefix;
 	var $link_id;
 	var $query_result;
+	var $in_transaction = 0;
 
 	var $saved_queries = array();
 	var $num_queries = 0;
@@ -32,20 +33,18 @@ class DBLayer
 	{
 		$this->prefix = $db_prefix;
 
-		// Was a custom port supplied with $db_host?
-		if (strpos($db_host, ':') !== false)
-			list($db_host, $db_port) = explode(':', $db_host);
-
-		// Persistent connection in MySQLi are only available in PHP 5.3 and later releases
-		$p_connect = $p_connect && version_compare(PHP_VERSION, '5.3.0', '>=') ? 'p:' : '';
-
-		if (isset($db_port))
-			$this->link_id = @mysqli_connect($p_connect.$db_host, $db_username, $db_password, $db_name, $db_port);
+		if ($p_connect)
+			$this->link_id = @mysql_pconnect($db_host, $db_username, $db_password);
 		else
-			$this->link_id = @mysqli_connect($p_connect.$db_host, $db_username, $db_password, $db_name);
+			$this->link_id = @mysql_connect($db_host, $db_username, $db_password);
 
-		if (!$this->link_id)
-			error('Unable to connect to MySQL and select database. MySQL reported: '.mysqli_connect_error(), __FILE__, __LINE__);
+		if ($this->link_id)
+		{
+			if (!@mysql_select_db($db_name, $this->link_id))
+				error('Unable to select database. MySQL reported: '.mysql_error(), __FILE__, __LINE__);
+		}
+		else
+			error('Unable to connect to MySQL server. MySQL reported: '.mysql_error(), __FILE__, __LINE__);
 
 		// Setup the client-server character set (UTF-8)
 		if (!defined('FORUM_NO_SET_NAMES'))
@@ -63,12 +62,18 @@ class DBLayer
 
 	function start_transaction()
 	{
+		++$this->in_transaction;
+
+		mysql_query('START TRANSACTION', $this->link_id);
 		return;
 	}
 
 
 	function end_transaction()
 	{
+		--$this->in_transaction;
+
+		mysql_query('COMMIT', $this->link_id);
 		return;
 	}
 
@@ -78,7 +83,10 @@ class DBLayer
 		if (defined('PUN_SHOW_QUERIES'))
 			$q_start = get_microtime();
 
-		$this->query_result = @mysqli_query($this->link_id, $sql);
+		if ($unbuffered)
+			$this->query_result = @mysql_unbuffered_query($sql, $this->link_id);
+		else
+			$this->query_result = @mysql_query($sql, $this->link_id);
 
 		if ($this->query_result)
 		{
@@ -94,8 +102,14 @@ class DBLayer
 			if (defined('PUN_SHOW_QUERIES'))
 				$this->saved_queries[] = array($sql, 0);
 
-			$this->error_no = @mysqli_errno($this->link_id);
-			$this->error_msg = @mysqli_error($this->link_id);
+			$this->error_no = @mysql_errno($this->link_id);
+			$this->error_msg = @mysql_error($this->link_id);
+
+			// Rollback transaction
+			if ($this->in_transaction)
+				mysql_query('ROLLBACK', $this->link_id);
+
+			--$this->in_transaction;
 
 			return false;
 		}
@@ -104,49 +118,37 @@ class DBLayer
 
 	function result($query_id = 0, $row = 0, $col = 0)
 	{
-		if ($query_id)
-		{
-			if ($row !== 0 && @mysqli_data_seek($query_id, $row) === false)
-				return false;
-
-			$cur_row = @mysqli_fetch_row($query_id);
-			if ($cur_row === false)
-				return false;
-
-			return $cur_row[$col];
-		}
-		else
-			return false;
+		return ($query_id) ? @mysql_result($query_id, $row, $col) : false;
 	}
 
 
 	function fetch_assoc($query_id = 0)
 	{
-		return ($query_id) ? @mysqli_fetch_assoc($query_id) : false;
+		return ($query_id) ? @mysql_fetch_assoc($query_id) : false;
 	}
 
 
 	function fetch_row($query_id = 0)
 	{
-		return ($query_id) ? @mysqli_fetch_row($query_id) : false;
+		return ($query_id) ? @mysql_fetch_row($query_id) : false;
 	}
 
 
 	function num_rows($query_id = 0)
 	{
-		return ($query_id) ? @mysqli_num_rows($query_id) : false;
+		return ($query_id) ? @mysql_num_rows($query_id) : false;
 	}
 
 
 	function affected_rows()
 	{
-		return ($this->link_id) ? @mysqli_affected_rows($this->link_id) : false;
+		return ($this->link_id) ? @mysql_affected_rows($this->link_id) : false;
 	}
 
 
 	function insert_id()
 	{
-		return ($this->link_id) ? @mysqli_insert_id($this->link_id) : false;
+		return ($this->link_id) ? @mysql_insert_id($this->link_id) : false;
 	}
 
 
@@ -164,13 +166,18 @@ class DBLayer
 
 	function free_result($query_id = false)
 	{
-		return ($query_id) ? @mysqli_free_result($query_id) : false;
+		return ($query_id) ? @mysql_free_result($query_id) : false;
 	}
 
 
 	function escape($str)
 	{
-		return is_array($str) ? '' : mysqli_real_escape_string($this->link_id, $str);
+		if (is_array($str))
+			return '';
+		else if (function_exists('mysql_real_escape_string'))
+			return mysql_real_escape_string($str, $this->link_id);
+		else
+			return mysql_escape_string($str);
 	}
 
 
@@ -188,10 +195,10 @@ class DBLayer
 	{
 		if ($this->link_id)
 		{
-			if ($this->query_result instanceof mysqli_result)
-				@mysqli_free_result($this->query_result);
+			if (is_resource($this->query_result))
+				@mysql_free_result($this->query_result);
 
-			return @mysqli_close($this->link_id);
+			return @mysql_close($this->link_id);
 		}
 		else
 			return false;
@@ -216,7 +223,7 @@ class DBLayer
 		$result = $this->query('SELECT VERSION()');
 
 		return array(
-			'name'		=> 'MySQL Improved',
+			'name'		=> 'MySQL Standard (InnoDB)',
 			'version'	=> preg_replace('%^([^-]+).*$%', '\\1', $this->result($result))
 		);
 	}
@@ -299,7 +306,7 @@ class DBLayer
 		}
 
 		// We remove the last two characters (a newline and a comma) and add on the ending
-		$query = substr($query, 0, strlen($query) - 2)."\n".') ENGINE = '.(isset($schema['ENGINE']) ? $schema['ENGINE'] : 'MyISAM').' CHARACTER SET utf8';
+		$query = substr($query, 0, strlen($query) - 2)."\n".') ENGINE = '.(isset($schema['ENGINE']) ? $schema['ENGINE'] : 'InnoDB').' CHARACTER SET utf8';
 
 		return $this->query($query) ? true : false;
 	}

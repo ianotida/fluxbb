@@ -67,12 +67,13 @@ require PUN_ROOT.'header.php';
 	<div class="box">
 		<form id="userlist" method="get" action="userlist.php">
 			<div class="inform">
+				<br/>
 				<fieldset>
-					<legend><?php echo $lang_ul['User find legend'] ?></legend>
-					<div class="infldset">
+					
 <?php if ($pun_user['g_search_users'] == '1'): ?>						<label class="conl"><?php echo $lang_common['Username'] ?><br /><input type="text" name="username" value="<?php echo pun_htmlspecialchars($username) ?>" size="25" maxlength="25" /><br /></label>
 <?php endif; ?>						<label class="conl"><?php echo $lang_ul['User group']."\n" ?>
-						<br /><select name="show_group">
+						<br />
+						<select name="show_group" style="width:130px;">
 							<option value="-1"<?php if ($show_group == -1) echo ' selected="selected"' ?>><?php echo $lang_ul['All users'] ?></option>
 <?php
 
@@ -90,23 +91,27 @@ while ($cur_group = $db->fetch_assoc($result))
 						</select>
 						<br /></label>
 						<label class="conl"><?php echo $lang_search['Sort by']."\n" ?>
-						<br /><select name="sort_by">
+						<br />
+						<select name="sort_by" style="width:130px;">
 							<option value="username"<?php if ($sort_by == 'username') echo ' selected="selected"' ?>><?php echo $lang_common['Username'] ?></option>
 							<option value="registered"<?php if ($sort_by == 'registered') echo ' selected="selected"' ?>><?php echo $lang_common['Registered'] ?></option>
 <?php if ($show_post_count): ?>							<option value="num_posts"<?php if ($sort_by == 'num_posts') echo ' selected="selected"' ?>><?php echo $lang_ul['No of posts'] ?></option>
 <?php endif; ?>						</select>
 						<br /></label>
 						<label class="conl"><?php echo $lang_search['Sort order']."\n" ?>
-						<br /><select name="sort_dir">
+						<br />
+						<select name="sort_dir" style="width:130px;">
 							<option value="ASC"<?php if ($sort_dir == 'ASC') echo ' selected="selected"' ?>><?php echo $lang_search['Ascending'] ?></option>
 							<option value="DESC"<?php if ($sort_dir == 'DESC') echo ' selected="selected"' ?>><?php echo $lang_search['Descending'] ?></option>
 						</select>
 						<br /></label>
 						<p class="clearb"><?php echo ($pun_user['g_search_users'] == '1' ? $lang_ul['User search info'].' ' : '').$lang_ul['User sort info']; ?></p>
-					</div>
+					
 				</fieldset>
+				
+				<br/>
+				<input type="submit" name="search" value="<?php echo $lang_common['Submit'] ?>" accesskey="s" />
 			</div>
-			<p class="buttons"><input type="submit" name="search" value="<?php echo $lang_common['Submit'] ?>" accesskey="s" /></p>
 		</form>
 	</div>
 </div>
@@ -137,7 +142,7 @@ while ($cur_group = $db->fetch_assoc($result))
 // Retrieve a list of user IDs, LIMIT is (really) expensive so we only fetch the IDs here then later fetch the remaining data
 $result = $db->query('SELECT u.id FROM '.$db->prefix.'users AS u WHERE u.id>1 AND u.group_id!='.PUN_UNVERIFIED.(!empty($where_sql) ? ' AND '.implode(' AND ', $where_sql) : '').' ORDER BY '.$sort_by.' '.$sort_dir.', u.id ASC LIMIT '.$start_from.', 50') or error('Unable to fetch user IDs', __FILE__, __LINE__, $db->error());
 
-if ($db->has_rows($result))
+if ($db->num_rows($result))
 {
 	$user_ids = array();
 	for ($i = 0;$cur_user_id = $db->result($result, $i);$i++)

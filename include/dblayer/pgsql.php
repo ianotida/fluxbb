@@ -11,10 +11,7 @@ if (!function_exists('pg_connect'))
 	exit('This PHP environment doesn\'t have PostgreSQL support built in. PostgreSQL support is required if you want to use a PostgreSQL database to run this forum. Consult the PHP documentation for further assistance.');
 
 
-require_once PUN_ROOT.'include/dblayer/interface.php';
-
-
-class PgsqlDBLayer implements DBLayer
+class DBLayer
 {
 	var $prefix;
 	var $link_id;
@@ -73,6 +70,14 @@ class PgsqlDBLayer implements DBLayer
 		// Setup the client-server character set (UTF-8)
 		if (!defined('FORUM_NO_SET_NAMES'))
 			$this->set_names('utf8');
+
+		return $this->link_id;
+	}
+	
+
+	function DBLayer($db_host, $db_username, $db_password, $db_name, $db_prefix, $p_connect)
+	{
+		$this->__construct($db_host, $db_username, $db_password, $db_name, $db_prefix, $p_connect);
 	}
 
 
@@ -104,7 +109,7 @@ class PgsqlDBLayer implements DBLayer
 			$sql = preg_replace('%LIMIT ([0-9]+),([ 0-9]+)%', 'LIMIT \\2 OFFSET \\1', $sql);
 
 		if (defined('PUN_SHOW_QUERIES'))
-			$q_start = microtime(true);
+			$q_start = get_microtime();
 
 		@pg_send_query($this->link_id, $sql);
 		$this->query_result = @pg_get_result($this->link_id);
@@ -112,7 +117,7 @@ class PgsqlDBLayer implements DBLayer
 		if (pg_result_status($this->query_result) != PGSQL_FATAL_ERROR)
 		{
 			if (defined('PUN_SHOW_QUERIES'))
-				$this->saved_queries[] = array($sql, sprintf('%.5F', microtime(true) - $q_start));
+				$this->saved_queries[] = array($sql, sprintf('%.5F', get_microtime() - $q_start));
 
 			++$this->num_queries;
 
@@ -156,9 +161,9 @@ class PgsqlDBLayer implements DBLayer
 	}
 
 
-	function has_rows($query_id)
+	function num_rows($query_id = 0)
 	{
-		return $query_id ? pg_num_rows($query_id) > 0 : false;
+		return ($query_id) ? @pg_num_rows($query_id) : false;
 	}
 
 
@@ -275,21 +280,21 @@ class PgsqlDBLayer implements DBLayer
 	function table_exists($table_name, $no_prefix = false)
 	{
 		$result = $this->query('SELECT 1 FROM pg_class WHERE relname = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\'');
-		return $this->has_rows($result);
+		return $this->num_rows($result) > 0;
 	}
 
 
 	function field_exists($table_name, $field_name, $no_prefix = false)
 	{
 		$result = $this->query('SELECT 1 FROM pg_class c INNER JOIN pg_attribute a ON a.attrelid = c.oid WHERE c.relname = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND a.attname = \''.$this->escape($field_name).'\'');
-		return $this->has_rows($result);
+		return $this->num_rows($result) > 0;
 	}
 
 
 	function index_exists($table_name, $index_name, $no_prefix = false)
 	{
 		$result = $this->query('SELECT 1 FROM pg_index i INNER JOIN pg_class c1 ON c1.oid = i.indrelid INNER JOIN pg_class c2 ON c2.oid = i.indexrelid WHERE c1.relname = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND c2.relname = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'_'.$this->escape($index_name).'\'');
-		return $this->has_rows($result);
+		return $this->num_rows($result) > 0;
 	}
 
 

@@ -11,10 +11,7 @@ if (!function_exists('sqlite_open'))
 	exit('This PHP environment doesn\'t have SQLite support built in. SQLite support is required if you want to use a SQLite database to run this forum. Consult the PHP documentation for further assistance.');
 
 
-require_once PUN_ROOT.'include/dblayer/interface.php';
-
-
-class SqliteDBLayer implements DBLayer
+class DBLayer
 {
 	var $prefix;
 	var $link_id;
@@ -34,7 +31,7 @@ class SqliteDBLayer implements DBLayer
 	);
 
 
-	function __construct($db_name, $db_prefix, $p_connect)
+	function __construct($db_host, $db_username, $db_password, $db_name, $db_prefix, $p_connect)
 	{
 		// Prepend $db_name with the path to the forum root directory
 		$db_name = PUN_ROOT.$db_name;
@@ -62,6 +59,14 @@ class SqliteDBLayer implements DBLayer
 
 		if (!$this->link_id)
 			error('Unable to open database \''.$db_name.'\'. SQLite reported: '.$sqlite_error, __FILE__, __LINE__);
+		else
+			return $this->link_id;
+	}
+	
+	
+	function DBLayer($db_host, $db_username, $db_password, $db_name, $db_prefix, $p_connect)
+	{
+		$this->__construct($db_host, $db_username, $db_password, $db_name, $db_prefix, $p_connect);
 	}
 
 
@@ -90,7 +95,7 @@ class SqliteDBLayer implements DBLayer
 	function query($sql, $unbuffered = false)
 	{
 		if (defined('PUN_SHOW_QUERIES'))
-			$q_start = microtime(true);
+			$q_start = get_microtime();
 
 		if ($unbuffered)
 			$this->query_result = @sqlite_unbuffered_query($this->link_id, $sql);
@@ -100,7 +105,7 @@ class SqliteDBLayer implements DBLayer
 		if ($this->query_result)
 		{
 			if (defined('PUN_SHOW_QUERIES'))
-				$this->saved_queries[] = array($sql, sprintf('%.5F', microtime(true) - $q_start));
+				$this->saved_queries[] = array($sql, sprintf('%.5F', get_microtime() - $q_start));
 
 			++$this->num_queries;
 
@@ -175,9 +180,9 @@ class SqliteDBLayer implements DBLayer
 	}
 
 
-	function has_rows($query_id)
+	function num_rows($query_id = 0)
 	{
-		return $query_id ? sqlite_num_rows($query_id) > 0 : false;
+		return ($query_id) ? @sqlite_num_rows($query_id) : false;
 	}
 
 
@@ -270,14 +275,14 @@ class SqliteDBLayer implements DBLayer
 	function table_exists($table_name, $no_prefix = false)
 	{
 		$result = $this->query('SELECT 1 FROM sqlite_master WHERE name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND type=\'table\'');
-		return $this->has_rows($result);
+		return $this->num_rows($result) > 0;
 	}
 
 
 	function field_exists($table_name, $field_name, $no_prefix = false)
 	{
 		$result = $this->query('SELECT sql FROM sqlite_master WHERE name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND type=\'table\'');
-		if (!$this->has_rows($result))
+		if (!$this->num_rows($result))
 			return false;
 
 		return preg_match('%[\r\n]'.preg_quote($field_name, '%').' %', $this->result($result));
@@ -287,7 +292,7 @@ class SqliteDBLayer implements DBLayer
 	function index_exists($table_name, $index_name, $no_prefix = false)
 	{
 		$result = $this->query('SELECT 1 FROM sqlite_master WHERE tbl_name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'_'.$this->escape($index_name).'\' AND type=\'index\'');
-		return $this->has_rows($result);
+		return $this->num_rows($result) > 0;
 	}
 
 
@@ -394,7 +399,9 @@ class SqliteDBLayer implements DBLayer
 	{
 		// Grab table info
 		$result = $this->query('SELECT sql FROM sqlite_master WHERE tbl_name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' ORDER BY type DESC') or error('Unable to fetch table information', __FILE__, __LINE__, $this->error());
-		if (!$this->has_rows($result))
+		$num_rows = $this->num_rows($result);
+
+		if ($num_rows == 0)
 			return;
 
 		$table = array();

@@ -25,10 +25,7 @@ ob_start();
 	<div class="box">
 <?php
 
-// If no footer style has been specified, we use the default (only copyright/debug info)
-$footer_style = isset($footer_style) ? $footer_style : null;
-
-if (($footer_style == 'viewforum' || $footer_style == 'viewtopic') && $is_admmod)
+if (isset($footer_style) && ($footer_style == 'viewforum' || $footer_style == 'viewtopic') && $is_admmod)
 {
 	echo "\t\t".'<div id="modcontrols" class="inbox">'."\n";
 
@@ -93,6 +90,9 @@ echo "\t\t\t".'</div>'."\n";
 			<div class="conr">
 <?php
 
+// If no footer style has been specified, we use the default (only copyright/debug info)
+$footer_style = isset($footer_style) ? $footer_style : NULL;
+
 if ($footer_style == 'index')
 {
 	if ($pun_config['o_feed_type'] == '1')
@@ -116,7 +116,7 @@ else if ($footer_style == 'viewtopic')
 }
 
 ?>
-				<p id="poweredby"><?php printf($lang_common['Powered by'], '<a href="https://fluxbb.org/">FluxBB</a>'.(($pun_config['o_show_version'] == '1') ? ' '.$pun_config['o_cur_version'] : '')) ?></p>
+				<p id="poweredby"><?php printf($lang_common['Powered by'], '<a href="http://fluxbb.org/">FluxBB</a>'.(($pun_config['o_show_version'] == '1') ? ' '.$pun_config['o_cur_version'] : '')) ?></p>
 			</div>
 			<div class="clearer"></div>
 		</div>
@@ -130,7 +130,7 @@ if (defined('PUN_DEBUG'))
 	echo '<p id="debugtime">[ ';
 
 	// Calculate script generation time
-	$time_diff = sprintf('%.3f', microtime(true) - $_SERVER['REQUEST_TIME_FLOAT']);
+	$time_diff = sprintf('%.3f', get_microtime() - $pun_start);
 	echo sprintf($lang_common['Querytime'], $time_diff, $db->get_num_queries());
 
 	if (function_exists('memory_get_usage'))

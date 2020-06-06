@@ -17,7 +17,10 @@ header('Cache-Control: post-check=0, pre-check=0', false);
 header('Pragma: no-cache'); // For HTTP/1.0 compatibility
 
 // Send the Content-type header in case the web server is setup to send something else
-header('Content-type: text/html; charset=utf-8');
+//header('Content-type: text/html; charset=utf-8');
+
+
+
 
 // Prevent site from being embedded in a frame unless FORUM_FRAME_OPTIONS is set
 // to a valid X-Frame-Options header value or false
@@ -95,6 +98,7 @@ ob_start();
 
 // Define $p if it's not set to avoid a PHP notice
 $p = isset($p) ? $p : null;
+
 
 // Is this a page that we want search index spiders to index?
 if (!defined('PUN_ALLOW_INDEX'))
@@ -192,6 +196,8 @@ $links = array();
 
 // Index should always be displayed
 $links[] = '<li id="navindex"'.((PUN_ACTIVE_PAGE == 'index') ? ' class="isactive"' : '').'><a href="index.php">'.$lang_common['Index'].'</a></li>';
+
+$links[] = '<li '.((PUN_ACTIVE_PAGE == 'custom') ? ' class="isactive"' : '').'><a href="custom.php">Custom</a></li>';
 
 if ($pun_user['g_read_board'] == '1' && $pun_user['g_view_users'] == '1')
 	$links[] = '<li id="navuserlist"'.((PUN_ACTIVE_PAGE == 'userlist') ? ' class="isactive"' : '').'><a href="userlist.php">'.$lang_common['User list'].'</a></li>';

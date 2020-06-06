@@ -36,17 +36,11 @@
  * The execution time should be at most 10-20 ms in any system.
  */
 function secure_random_bytes($len = 10)
-{
-   /*
-    * On PHP 7 and above, the native random_bytes should be available.
-    */
-   if (function_exists('random_bytes')) {
-      return random_bytes($len);
-   }
+{  
  
    /*
-    * On older versions of PHP, our primary choice for a cryptographic strong
-    * randomness function is openssl_random_pseudo_bytes.
+    * Our primary choice for a cryptographic strong randomness function is
+    * openssl_random_pseudo_bytes. 
     */
    $SSLstr = '4'; // http://xkcd.com/221/
    if (function_exists('openssl_random_pseudo_bytes') &&
@@ -118,12 +112,12 @@ function secure_random_bytes($len = 10)
          // Measure the time that the operations will take on average
          for ($i = 0; $i < 3; $i++) 
          {
-            $c1 = microtime(true);
+            $c1 = get_microtime();
             $var = sha1(mt_rand());
             for ($j = 0; $j < 50; $j++) {
                $var = sha1($var);
             }
-            $c2 = microtime(true);
+            $c2 = get_microtime();
             $entropy .= $c1 . $c2;
          }
 
@@ -136,12 +130,12 @@ function secure_random_bytes($len = 10)
          $iter = $bytes * (int) (ceil(8 / $bits_per_round));
          for ($i = 0; $i < $iter; $i++)
          {
-            $c1 = microtime(true);
+            $c1 = get_microtime();
             $var = sha1(mt_rand());
             for ($j = 0; $j < $rounds; $j++) {
                $var = sha1($var);
             }
-            $c2 = microtime(true);
+            $c2 = get_microtime();
             $entropy .= $c1 . $c2;
          }
 

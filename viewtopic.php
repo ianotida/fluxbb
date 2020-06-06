@@ -28,7 +28,7 @@ require PUN_ROOT.'lang/'.$pun_user['language'].'/topic.php';
 if ($pid)
 {
 	$result = $db->query('SELECT topic_id, posted FROM '.$db->prefix.'posts WHERE id='.$pid) or error('Unable to fetch topic ID', __FILE__, __LINE__, $db->error());
-	if (!$db->has_rows($result))
+	if (!$db->num_rows($result))
 		message($lang_common['Bad request'], false, '404 Not Found');
 
 	list($id, $posted) = $db->fetch_row($result);
@@ -85,7 +85,7 @@ if (!$pun_user['is_guest'])
 else
 	$result = $db->query('SELECT t.subject, t.closed, t.num_replies, t.sticky, t.first_post_id, f.id AS forum_id, f.forum_name, f.moderators, fp.post_replies, 0 AS is_subscribed FROM '.$db->prefix.'topics AS t INNER JOIN '.$db->prefix.'forums AS f ON f.id=t.forum_id LEFT JOIN '.$db->prefix.'forum_perms AS fp ON (fp.forum_id=f.id AND fp.group_id='.$pun_user['g_id'].') WHERE (fp.read_forum IS NULL OR fp.read_forum=1) AND t.id='.$id.' AND t.moved_to IS NULL') or error('Unable to fetch topic info', __FILE__, __LINE__, $db->error());
 
-if (!$db->has_rows($result))
+if (!$db->num_rows($result))
 	message($lang_common['Bad request'], false, '404 Not Found');
 
 $cur_topic = $db->fetch_assoc($result);
@@ -186,12 +186,6 @@ if ($pun_config['o_feed_type'] == '1')
 else if ($pun_config['o_feed_type'] == '2')
 	$page_head['feed'] = '<link rel="alternate" type="application/atom+xml" href="extern.php?action=feed&amp;tid='.$id.'&amp;type=atom" title="'.$lang_common['Atom topic feed'].'" />';
 
-$crumbs = generate_crumbs(array(
-	array($lang_common['Index'], 'index.php'),
-	array($cur_topic['forum_name'], 'viewforum.php?id='.$cur_topic['forum_id']),
-	array($cur_topic['subject'], 'viewtopic.php?id='.$id),
-));
-
 $page_title = array(pun_htmlspecialchars($pun_config['o_board_title']), pun_htmlspecialchars($cur_topic['forum_name']), pun_htmlspecialchars($cur_topic['subject']));
 define('PUN_ALLOW_INDEX', 1);
 define('PUN_ACTIVE_PAGE', 'index');
@@ -200,7 +194,11 @@ require PUN_ROOT.'header.php';
 ?>
 <div class="linkst">
 	<div class="inbox crumbsplus">
-		<?php echo $crumbs ?>
+		<ul class="crumbs">
+			<li><a href="index.php"><?php echo $lang_common['Index'] ?></a></li>
+			<li><span>»&#160;</span><a href="viewforum.php?id=<?php echo $cur_topic['forum_id'] ?>"><?php echo pun_htmlspecialchars($cur_topic['forum_name']) ?></a></li>
+			<li><span>»&#160;</span><strong><a href="viewtopic.php?id=<?php echo $id ?>"><?php echo pun_htmlspecialchars($cur_topic['subject']) ?></a></strong></li>
+		</ul>
 		<div class="pagepost">
 			<p class="pagelink conl"><?php echo $paging_links ?></p>
 <?php echo $post_link ?>
@@ -411,7 +409,11 @@ while ($cur_post = $db->fetch_assoc($result))
 			<p class="pagelink conl"><?php echo $paging_links ?></p>
 <?php echo $post_link ?>
 		</div>
-		<?php echo $crumbs ?>
+		<ul class="crumbs">
+			<li><a href="index.php"><?php echo $lang_common['Index'] ?></a></li>
+			<li><span>»&#160;</span><a href="viewforum.php?id=<?php echo $cur_topic['forum_id'] ?>"><?php echo pun_htmlspecialchars($cur_topic['forum_name']) ?></a></li>
+			<li><span>»&#160;</span><strong><a href="viewtopic.php?id=<?php echo $id ?>"><?php echo pun_htmlspecialchars($cur_topic['subject']) ?></a></strong></li>
+		</ul>
 <?php echo $subscraction ?>
 		<div class="clearer"></div>
 	</div>

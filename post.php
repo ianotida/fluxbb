@@ -25,7 +25,7 @@ if ($tid)
 else
 	$result = $db->query('SELECT f.id, f.forum_name, f.moderators, f.redirect_url, fp.post_replies, fp.post_topics FROM '.$db->prefix.'forums AS f LEFT JOIN '.$db->prefix.'forum_perms AS fp ON (fp.forum_id=f.id AND fp.group_id='.$pun_user['g_id'].') WHERE (fp.read_forum IS NULL OR fp.read_forum=1) AND f.id='.$fid) or error('Unable to fetch forum info', __FILE__, __LINE__, $db->error());
 
-if (!$db->has_rows($result))
+if (!$db->num_rows($result))
 	message($lang_common['Bad request'], false, '404 Not Found');
 
 $cur_posting = $db->fetch_assoc($result);
@@ -223,7 +223,7 @@ if (isset($_POST['form_sent']))
 
 				// Get any subscribed users that should be notified (banned users are excluded)
 				$result = $db->query('SELECT u.id, u.email, u.notify_with_post, u.language FROM '.$db->prefix.'users AS u INNER JOIN '.$db->prefix.'topic_subscriptions AS s ON u.id=s.user_id LEFT JOIN '.$db->prefix.'forum_perms AS fp ON (fp.forum_id='.$cur_posting['id'].' AND fp.group_id=u.group_id) LEFT JOIN '.$db->prefix.'online AS o ON u.id=o.user_id LEFT JOIN '.$db->prefix.'bans AS b ON u.username=b.username WHERE b.username IS NULL AND COALESCE(o.logged, u.last_visit)>'.$previous_post_time.' AND (fp.read_forum IS NULL OR fp.read_forum=1) AND s.topic_id='.$tid.' AND u.id!='.$pun_user['id']) or error('Unable to fetch subscription info', __FILE__, __LINE__, $db->error());
-				if ($db->has_rows($result))
+				if ($db->num_rows($result))
 				{
 					require_once PUN_ROOT.'include/email.php';
 
@@ -332,7 +332,7 @@ if (isset($_POST['form_sent']))
 			{
 				// Get any subscribed users that should be notified (banned users are excluded)
 				$result = $db->query('SELECT u.id, u.email, u.notify_with_post, u.language FROM '.$db->prefix.'users AS u INNER JOIN '.$db->prefix.'forum_subscriptions AS s ON u.id=s.user_id LEFT JOIN '.$db->prefix.'forum_perms AS fp ON (fp.forum_id='.$cur_posting['id'].' AND fp.group_id=u.group_id) LEFT JOIN '.$db->prefix.'bans AS b ON u.username=b.username WHERE b.username IS NULL AND (fp.read_forum IS NULL OR fp.read_forum=1) AND s.forum_id='.$cur_posting['id'].' AND u.id!='.$pun_user['id']) or error('Unable to fetch subscription info', __FILE__, __LINE__, $db->error());
-				if ($db->has_rows($result))
+				if ($db->num_rows($result))
 				{
 					require_once PUN_ROOT.'include/email.php';
 
@@ -468,7 +468,7 @@ if ($tid)
 			message($lang_common['Bad request'], false, '404 Not Found');
 
 		$result = $db->query('SELECT poster, message FROM '.$db->prefix.'posts WHERE id='.$qid.' AND topic_id='.$tid) or error('Unable to fetch quote info', __FILE__, __LINE__, $db->error());
-		if (!$db->has_rows($result))
+		if (!$db->num_rows($result))
 			message($lang_common['Bad request'], false, '404 Not Found');
 
 		list($q_poster, $q_message) = $db->fetch_row($result);
@@ -543,19 +543,6 @@ else if ($fid)
 else
 	message($lang_common['Bad request'], false, '404 Not Found');
 
-if (isset($_POST['req_subject']))
-	$subject_crumb = $_POST['req_subject'];
-else if (isset($cur_posting['subject']))
-	$subject_crumb = array($cur_posting['subject'], 'viewtopic.php?id='.$tid);
-else
-	$subject_crumb = '';
-
-$crumbs = generate_crumbs(array_filter(array(
-	array($lang_common['Index'], 'index.php'),
-	array($cur_posting['forum_name'], 'viewforum.php?id='.$cur_posting['id']),
-	$subject_crumb,
-	$action,
-)));
 
 $page_title = array(pun_htmlspecialchars($pun_config['o_board_title']), $action);
 $required_fields = array('req_email' => $lang_common['Email'], 'req_subject' => $lang_common['Subject'], 'req_message' => $lang_common['Message']);
@@ -577,7 +564,14 @@ require PUN_ROOT.'header.php';
 ?>
 <div class="linkst">
 	<div class="inbox">
-		<?php echo $crumbs ?>
+		<ul class="crumbs">
+			<li><a href="index.php"><?php echo $lang_common['Index'] ?></a></li>
+			<li><span>»&#160;</span><a href="viewforum.php?id=<?php echo $cur_posting['id'] ?>"><?php echo pun_htmlspecialchars($cur_posting['forum_name']) ?></a></li>
+<?php if (isset($_POST['req_subject'])): ?>			<li><span>»&#160;</span><?php echo pun_htmlspecialchars($_POST['req_subject']) ?></li>
+<?php endif; ?>
+<?php if (isset($cur_posting['subject'])): ?>			<li><span>»&#160;</span><a href="viewtopic.php?id=<?php echo $tid ?>"><?php echo pun_htmlspecialchars($cur_posting['subject']) ?></a></li>
+<?php endif; ?>			<li><span>»&#160;</span><strong><?php echo $action ?></strong></li>
+		</ul>
 	</div>
 </div>
 

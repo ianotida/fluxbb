@@ -48,6 +48,7 @@ $lang_admin_users = array(
 'Jabber label'				=>	'Jabber',
 'ICQ label'					=>	'ICQ',
 'MSN label'					=>	'Microsoft Account',
+'AOL label'					=>	'AOL IM',
 'Yahoo label'				=>	'Yahoo Messenger',
 'Location label'			=>	'Location',
 'Signature label'			=>	'Signature',

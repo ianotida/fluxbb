@@ -9,12 +9,12 @@
 // The FluxBB version this script updates to
 define('UPDATE_TO', '1.5.11');
 
-define('UPDATE_TO_DB_REVISION', 24);
+define('UPDATE_TO_DB_REVISION', 21);
 define('UPDATE_TO_SI_REVISION', 2);
 define('UPDATE_TO_PARSER_REVISION', 2);
 
-define('MIN_PHP_VERSION', '5.6.4');
-define('MIN_MYSQL_VERSION', '5.0.6');
+define('MIN_PHP_VERSION', '4.4.0');
+define('MIN_MYSQL_VERSION', '4.1.2');
 define('MIN_PGSQL_VERSION', '7.0.0');
 define('PUN_SEARCH_MIN_WORD', 3);
 define('PUN_SEARCH_MAX_WORD', 20);
@@ -64,11 +64,32 @@ require PUN_ROOT.'include/utf8/utf8.php';
 // Strip out "bad" UTF-8 characters
 forum_remove_bad_characters();
 
+// Reverse the effect of register_globals
+forum_unregister_globals();
+
 // Turn on full PHP error reporting
 error_reporting(E_ALL);
 
 // Force POSIX locale (to prevent functions such as strtolower() from messing up UTF-8 strings)
 setlocale(LC_CTYPE, 'C');
+
+// Turn off magic_quotes_runtime
+if (get_magic_quotes_runtime())
+	set_magic_quotes_runtime(0);
+
+// Strip slashes from GET/POST/COOKIE (if magic_quotes_gpc is enabled)
+if (get_magic_quotes_gpc())
+{
+	function stripslashes_array($array)
+	{
+		return is_array($array) ? array_map('stripslashes_array', $array) : stripslashes($array);
+	}
+
+	$_GET = stripslashes_array($_GET);
+	$_POST = stripslashes_array($_POST);
+	$_COOKIE = stripslashes_array($_COOKIE);
+	$_REQUEST = stripslashes_array($_REQUEST);
+}
 
 // If a cookie name is not specified in config.php, we use the default (forum_cookie)
 if (empty($cookie_name))
@@ -118,9 +139,6 @@ $cur_version = $pun_config['o_cur_version'];
 
 if (version_compare($cur_version, '1.2', '<'))
 	error(sprintf($lang_update['Version mismatch error'], $db_name));
-
-if (!isset($password_hash_cost))
-	error(sprintf($lang_update['Password cost missing error']));
 
 // Do some DB type specific checks
 $mysql = false;
@@ -243,6 +261,10 @@ function convert_to_utf8(&$str, $old_charset)
 
 	$save = $str;
 
+	// Replace literal entities (for non-UTF-8 compliant html_entity_encode)
+	if (version_compare(PHP_VERSION, '5.0.0', '<') && $old_charset == 'ISO-8859-1' || $old_charset == 'ISO-8859-15')
+		$str = html_entity_decode($str, ENT_QUOTES, $old_charset);
+
 	if ($old_charset != 'UTF-8' && !seems_utf8($str))
 	{
 		if (function_exists('iconv'))
@@ -253,8 +275,9 @@ function convert_to_utf8(&$str, $old_charset)
 			$str = utf8_encode($str);
 	}
 
-	// Replace literal entities
-	$str = html_entity_decode($str, ENT_QUOTES, 'UTF-8');
+	// Replace literal entities (for UTF-8 compliant html_entity_encode)
+	if (version_compare(PHP_VERSION, '5.0.0', '>='))
+		$str = html_entity_decode($str, ENT_QUOTES, 'UTF-8');
 
 	// Replace numeric entities
 	$str = preg_replace_callback('%&#([0-9]+);%', 'utf8_callback_1', $str);
@@ -376,7 +399,7 @@ function convert_table_utf8($table, $callback, $old_charset, $key = null, $start
 		if (!is_null($start_at) && $end_at > 0)
 		{
 			$result = $db->query('SELECT 1 FROM '.$table.' WHERE '.$key.'>'.$end_at.' ORDER BY '.$key.' ASC LIMIT 1') or error('Unable to check for next row', __FILE__, __LINE__, $db->error());
-			$finished = !$db->has_rows($result);
+			$finished = $db->num_rows($result) == 0;
 		}
 
 		// Only swap the tables if we are doing this in 1 go, or it's the last go
@@ -414,7 +437,7 @@ function convert_table_utf8($table, $callback, $old_charset, $key = null, $start
 		if (!is_null($start_at) && $end_at > 0)
 		{
 			$result = $db->query('SELECT 1 FROM '.$table.' WHERE '.$key.'>'.$end_at.' ORDER BY '.$key.' ASC LIMIT 1') or error('Unable to check for next row', __FILE__, __LINE__, $db->error());
-			if (!$db->has_rows($result))
+			if ($db->num_rows($result) == 0)
 				return true;
 
 			return $end_at;
@@ -707,9 +730,6 @@ switch ($stage)
 		// Drop save_pass column from users table
 		$db->drop_field('users', 'save_pass') or error('Unable to drop save_pass field', __FILE__, __LINE__, $db->error());
 
-		// Drop AOL IM column from users table
-		$db->drop_field('users', 'aim') or error('Unable to drop aim field', __FILE__, __LINE__, $db->error());
-
 		// Drop g_edit_subjects_interval column from groups table
 		$db->drop_field('groups', 'g_edit_subjects_interval');
 
@@ -799,7 +819,7 @@ switch ($stage)
 			$temp_id = $db->result($result);
 
 			$result = $db->query('SELECT g_id FROM '.$db->prefix.'groups WHERE g_moderator = 1 AND g_id > 1 LIMIT 1') or error('Unable to select moderator group', __FILE__, __LINE__, $db->error());
-			if ($db->has_rows($result))
+			if ($db->num_rows($result))
 				$mod_gid = $db->result($result);
 			else
 			{
@@ -1527,7 +1547,7 @@ switch ($stage)
 
 				$result = $db->query('SELECT username FROM '.$db->prefix.'users WHERE (UPPER(username)=UPPER(\''.$db->escape($username).'\') OR UPPER(username)=UPPER(\''.$db->escape(ucp_preg_replace('%[^\p{L}\p{N}]%u', '', $username)).'\')) AND id>1') or error('Unable to fetch user info', __FILE__, __LINE__, $db->error());
 
-				if ($db->has_rows($result))
+				if ($db->num_rows($result))
 				{
 					$busy = $db->result($result);
 					$errors[$id][] = sprintf($lang_update['Username duplicate error'], pun_htmlspecialchars($busy));
@@ -1709,7 +1729,7 @@ foreach ($errors[$id] as $cur_error)
 		{
 			$result = $db->query('SELECT 1 FROM '.$db->prefix.'posts WHERE id > '.$end_at.' ORDER BY id ASC LIMIT 1') or error('Unable to fetch next ID', __FILE__, __LINE__, $db->error());
 
-			if ($db->has_rows($result))
+			if ($db->num_rows($result) > 0)
 				$query_str = '?stage=preparse_posts&start_at='.$end_at;
 		}
 
@@ -1718,7 +1738,7 @@ foreach ($errors[$id] as $cur_error)
 
 	// Preparse signatures
 	case 'preparse_sigs':
-		$query_str = '?stage=harden_passwords';
+		$query_str = '?stage=rebuild_idx';
 
 		// If we don't need to parse the sigs, skip this stage
 		if (isset($pun_config['o_parser_revision']) && $pun_config['o_parser_revision'] >= UPDATE_TO_PARSER_REVISION)
@@ -1743,54 +1763,9 @@ foreach ($errors[$id] as $cur_error)
 		if ($end_at > 0)
 		{
 			$result = $db->query('SELECT 1 FROM '.$db->prefix.'users WHERE id > '.$end_at.' ORDER BY id ASC LIMIT 1') or error('Unable to fetch next ID', __FILE__, __LINE__, $db->error());
-			if ($db->has_rows($result))
+			if ($db->num_rows($result) > 0)
 				$query_str = '?stage=preparse_sigs&start_at='.$end_at;
 		}
-
-		break;
-
-
-	// Convert legacy passwords
-	case 'harden_passwords':
-		$query_str = '?stage=rebuild_idx';
-
-		// Make password field VARCHAR(255) to support password_hash
-		// 255 is recommended by the PHP manual: http://php.net/manual/en/function.password-hash.php
-		if ($start_at == 0)
-			$db->alter_field('users', 'password', 'VARCHAR(255)', false) or error('Unable to alter password field', __FILE__, __LINE__, $db->error());
-
-		// Fetch passwords in batches
-		$result = $db->query('SELECT * FROM '.$db->prefix.'users WHERE id>'.$start_at.' ORDER BY id ASC LIMIT '.PER_PAGE, false) or error('Unable to fetch user password hashes', __FILE__, __LINE__, $db->error());
-
-		while ($cur_user = $db->fetch_assoc($result))
-		{
-			$old_password = $cur_user['password'];
-			$remove_salt = !empty($cur_user['salt']);
-
-			if (strlen($old_password) == 32) // MD5 from 1.2
-				$new_password_hash = '#MD5#'.flux_password_hash($old_password);
-			else if ($remove_salt) // Salted SHA1 from 1.3
-				$new_password_hash = '#SHA1-S#'.$cur_user['salt'].'#'.flux_password_hash($old_password);
-			else if (strlen($old_password) == 40) // Unsalted SHA1 from 1.4
-				$new_password_hash = '#SHA1#'.flux_password_hash($old_password);
-			else
-				$new_password_hash = $old_password;
-
-			$db->query('UPDATE '.$db->prefix.'users SET '.($remove_salt ? 'salt=NULL,' : '').' password=\''.$db->escape($new_password_hash).'\' WHERE id='.$cur_user['id']) or error('Unable to save updated password', __FILE__, __LINE__, $db->error());
-
-			$end_at = $cur_user['id'];
-		}
-
-		if ($end_at > 0)
-		{
-			$result = $db->query('SELECT 1 FROM '.$db->prefix.'users WHERE id>'.$end_at.' ORDER BY id ASC LIMIT 1') or error('Unable to check for next row', __FILE__, __LINE__, $db->error());
-			if ($db->has_rows($result))
-				$query_str = '?stage=harden_passwords&start_at='.$end_at;
-			else
-				$db->drop_field('users', 'salt');
-		}
-		else
-			$db->drop_field('users', 'salt');
 
 		break;
 
@@ -1849,7 +1824,7 @@ foreach ($errors[$id] as $cur_error)
 		{
 			$result = $db->query('SELECT 1 FROM '.$db->prefix.'posts WHERE id > '.$end_at.' ORDER BY id ASC LIMIT 1') or error('Unable to fetch next ID', __FILE__, __LINE__, $db->error());
 
-			if ($db->has_rows($result))
+			if ($db->num_rows($result) > 0)
 				$query_str = '?stage=rebuild_idx&start_at='.$end_at;
 		}
 

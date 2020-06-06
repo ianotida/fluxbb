@@ -28,8 +28,8 @@ if (isset($_GET['ip_stats']))
 		message($lang_common['Bad request'], false, '404 Not Found');
 
 	// Fetch ip count
-	$result = $db->query('SELECT COUNT(DISTINCT poster_ip) FROM '.$db->prefix.'posts WHERE poster_id='.$ip_stats) or error('Unable to fetch post info', __FILE__, __LINE__, $db->error());
-	$num_ips = $db->result($result);
+	$result = $db->query('SELECT poster_ip, MAX(posted) AS last_used FROM '.$db->prefix.'posts WHERE poster_id='.$ip_stats.' GROUP BY poster_ip') or error('Unable to fetch post info', __FILE__, __LINE__, $db->error());
+	$num_ips = $db->num_rows($result);
 
 	// Determine the ip offset (based on $_GET['p'])
 	$num_pages = ceil($num_ips / 50);
@@ -40,12 +40,6 @@ if (isset($_GET['ip_stats']))
 	// Generate paging links
 	$paging_links = '<span class="pages-label">'.$lang_common['Pages'].' </span>'.paginate($num_pages, $p, 'admin_users.php?ip_stats='.$ip_stats );
 
-	$crumbs = generate_crumbs(array(
-		array($lang_admin_common['Admin'].' '.$lang_admin_common['Index'], 'admin_index.php'),
-		array($lang_admin_common['Users'], 'admin_users.php'),
-		$lang_admin_users['Results head'],
-	));
-
 	$page_title = array(pun_htmlspecialchars($pun_config['o_board_title']), $lang_admin_common['Admin'], $lang_admin_common['Users'], $lang_admin_users['Results head']);
 	define('PUN_ACTIVE_PAGE', 'admin');
 	require PUN_ROOT.'header.php';
@@ -53,7 +47,11 @@ if (isset($_GET['ip_stats']))
 ?>
 <div class="linkst">
 	<div class="inbox crumbsplus">
-		<?php echo $crumbs ?>
+		<ul class="crumbs">
+			<li><a href="admin_index.php"><?php echo $lang_admin_common['Admin'].' '.$lang_admin_common['Index'] ?></a></li>
+			<li><span>»&#160;</span><a href="admin_users.php"><?php echo $lang_admin_common['Users'] ?></a></li>
+			<li><span>»&#160;</span><strong><?php echo $lang_admin_users['Results head'] ?></strong></li>
+		</ul>
 		<div class="pagepost">
 			<p class="pagelink"><?php echo $paging_links ?></p>
 		</div>
@@ -78,7 +76,7 @@ if (isset($_GET['ip_stats']))
 <?php
 
 	$result = $db->query('SELECT poster_ip, MAX(posted) AS last_used, COUNT(id) AS used_times FROM '.$db->prefix.'posts WHERE poster_id='.$ip_stats.' GROUP BY poster_ip ORDER BY last_used DESC LIMIT '.$start_from.', 50') or error('Unable to fetch post info', __FILE__, __LINE__, $db->error());
-	if ($db->has_rows($result))
+	if ($db->num_rows($result))
 	{
 		while ($cur_ip = $db->fetch_assoc($result))
 		{
@@ -109,7 +107,11 @@ if (isset($_GET['ip_stats']))
 		<div class="pagepost">
 			<p class="pagelink"><?php echo $paging_links ?></p>
 		</div>
-		<?php echo $crumbs ?>
+		<ul class="crumbs">
+			<li><a href="admin_index.php"><?php echo $lang_admin_common['Admin'].' '.$lang_admin_common['Index'] ?></a></li>
+			<li><span>»&#160;</span><a href="admin_users.php"><?php echo $lang_admin_common['Users'] ?></a></li>
+			<li><span>»&#160;</span><strong><?php echo $lang_admin_users['Results head'] ?></strong></li>
+		</ul>
 		<div class="clearer"></div>
 	</div>
 </div>
@@ -127,8 +129,8 @@ if (isset($_GET['show_users']))
 		message($lang_admin_users['Bad IP message']);
 
 	// Fetch user count
-	$result = $db->query('SELECT COUNT(DISTINCT poster_id, poster) FROM '.$db->prefix.'posts WHERE poster_ip=\''.$db->escape($ip).'\'') or error('Unable to fetch post info', __FILE__, __LINE__, $db->error());
-	$num_users = $db->result($result);
+	$result = $db->query('SELECT DISTINCT poster_id, poster FROM '.$db->prefix.'posts WHERE poster_ip=\''.$db->escape($ip).'\'') or error('Unable to fetch post info', __FILE__, __LINE__, $db->error());
+	$num_users = $db->num_rows($result);
 
 	// Determine the user offset (based on $_GET['p'])
 	$num_pages = ceil($num_users / 50);
@@ -139,12 +141,6 @@ if (isset($_GET['show_users']))
 	// Generate paging links
 	$paging_links = '<span class="pages-label">'.$lang_common['Pages'].' </span>'.paginate($num_pages, $p, 'admin_users.php?show_users='.$ip);
 
-	$crumbs = generate_crumbs(array(
-		array($lang_admin_common['Admin'].' '.$lang_admin_common['Index'], 'admin_index.php'),
-		array($lang_admin_common['Users'], 'admin_users.php'),
-		$lang_admin_users['Results head'],
-	));
-
 	$page_title = array(pun_htmlspecialchars($pun_config['o_board_title']), $lang_admin_common['Admin'], $lang_admin_common['Users'], $lang_admin_users['Results head']);
 	define('PUN_ACTIVE_PAGE', 'admin');
 	require PUN_ROOT.'header.php';
@@ -152,7 +148,11 @@ if (isset($_GET['show_users']))
 ?>
 <div class="linkst">
 	<div class="inbox crumbsplus">
-		<?php echo $crumbs ?>
+		<ul class="crumbs">
+			<li><a href="admin_index.php"><?php echo $lang_admin_common['Admin'].' '.$lang_admin_common['Index'] ?></a></li>
+			<li><span>»&#160;</span><a href="admin_users.php"><?php echo $lang_admin_common['Users'] ?></a></li>
+			<li><span>»&#160;</span><strong><?php echo $lang_admin_users['Results head'] ?></strong></li>
+		</ul>
 		<div class="pagepost">
 			<p class="pagelink"><?php echo $paging_links ?></p>
 		</div>
@@ -179,16 +179,17 @@ if (isset($_GET['show_users']))
 <?php
 
 	$result = $db->query('SELECT DISTINCT poster_id, poster FROM '.$db->prefix.'posts WHERE poster_ip=\''.$db->escape($ip).'\' ORDER BY poster ASC LIMIT '.$start_from.', 50') or error('Unable to fetch post info', __FILE__, __LINE__, $db->error());
+	$num_posts = $db->num_rows($result);
 
-	$posters = $poster_ids = array();
-	while ($cur_poster = $db->fetch_assoc($result))
+	if ($num_posts)
 	{
-		$posters[] = $cur_poster;
-		$poster_ids[] = $cur_poster['poster_id'];
-	}
+		$posters = $poster_ids = array();
+		while ($cur_poster = $db->fetch_assoc($result))
+		{
+			$posters[] = $cur_poster;
+			$poster_ids[] = $cur_poster['poster_id'];
+		}
 
-	if (!empty($posters))
-	{
 		$result = $db->query('SELECT u.id, u.username, u.email, u.title, u.num_posts, u.admin_note, g.g_id, g.g_user_title FROM '.$db->prefix.'users AS u INNER JOIN '.$db->prefix.'groups AS g ON g.g_id=u.group_id WHERE u.id>1 AND u.id IN('.implode(',', $poster_ids).')') or error('Unable to fetch user info', __FILE__, __LINE__, $db->error());
 
 		$user_data = array();
@@ -248,7 +249,11 @@ if (isset($_GET['show_users']))
 		<div class="pagepost">
 			<p class="pagelink"><?php echo $paging_links ?></p>
 		</div>
-		<?php echo $crumbs ?>
+		<ul class="crumbs">
+			<li><a href="admin_index.php"><?php echo $lang_admin_common['Admin'].' '.$lang_admin_common['Index'] ?></a></li>
+			<li><span>»&#160;</span><a href="admin_users.php"><?php echo $lang_admin_common['Users'] ?></a></li>
+			<li><span>»&#160;</span><strong><?php echo $lang_admin_users['Results head'] ?></strong></li>
+		</ul>
 		<div class="clearer"></div>
 	</div>
 </div>
@@ -460,7 +465,7 @@ else if (isset($_POST['delete_users']) || isset($_POST['delete_users_comply']))
 
 			// Find all posts made by this user
 			$result = $db->query('SELECT p.id, p.topic_id, t.forum_id FROM '.$db->prefix.'posts AS p INNER JOIN '.$db->prefix.'topics AS t ON t.id=p.topic_id INNER JOIN '.$db->prefix.'forums AS f ON f.id=t.forum_id WHERE p.poster_id IN ('.implode(',', $user_ids).')') or error('Unable to fetch posts', __FILE__, __LINE__, $db->error());
-			if ($db->has_rows($result))
+			if ($db->num_rows($result))
 			{
 				while ($cur_post = $db->fetch_assoc($result))
 				{
@@ -769,7 +774,7 @@ else if (isset($_GET['find_user']))
 	$like_command = ($db_type == 'pgsql') ? 'ILIKE' : 'LIKE';
 	foreach ($form as $key => $input)
 	{
-		if ($input != '' && in_array($key, array('username', 'email', 'title', 'realname', 'url', 'jabber', 'icq', 'msn', 'yahoo', 'location', 'signature', 'admin_note')))
+		if ($input != '' && in_array($key, array('username', 'email', 'title', 'realname', 'url', 'jabber', 'icq', 'msn', 'aim', 'yahoo', 'location', 'signature', 'admin_note')))
 		{
 			$conditions[] = 'u.'.$db->escape($key).' '.$like_command.' \''.$db->escape(str_replace(array('*', '_'), array('%', '\\_'), $input)).'\'';
 			$query_str[] = 'form%5B'.$key.'%5D='.urlencode($input);
@@ -808,12 +813,6 @@ else if (isset($_GET['find_user']))
 	$can_ban = $pun_user['g_id'] == PUN_ADMIN || ($pun_user['g_moderator'] == '1' && $pun_user['g_mod_ban_users'] == '1');
 	$can_action = ($can_delete || $can_ban || $can_move) && $num_users > 0;
 
-	$crumbs = generate_crumbs(array(
-		array($lang_admin_common['Admin'].' '.$lang_admin_common['Index'], 'admin_index.php'),
-		array($lang_admin_common['Users'], 'admin_users.php'),
-		$lang_admin_users['Results head'],
-	));
-
 	$page_title = array(pun_htmlspecialchars($pun_config['o_board_title']), $lang_admin_common['Admin'], $lang_admin_common['Users'], $lang_admin_users['Results head']);
 	$page_head = array('js' => '<script type="text/javascript" src="common.js"></script>');
 	define('PUN_ACTIVE_PAGE', 'admin');
@@ -822,7 +821,11 @@ else if (isset($_GET['find_user']))
 ?>
 <div class="linkst">
 	<div class="inbox crumbsplus">
-		<?php echo $crumbs ?>
+		<ul class="crumbs">
+			<li><a href="admin_index.php"><?php echo $lang_admin_common['Admin'].' '.$lang_admin_common['Index'] ?></a></li>
+			<li><span>»&#160;</span><a href="admin_users.php"><?php echo $lang_admin_common['Users'] ?></a></li>
+			<li><span>»&#160;</span><strong><?php echo $lang_admin_users['Results head'] ?></strong></li>
+		</ul>
 		<div class="pagepost">
 			<p class="pagelink"><?php echo $paging_links ?></p>
 		</div>
@@ -853,7 +856,7 @@ else if (isset($_GET['find_user']))
 <?php
 
 	$result = $db->query('SELECT u.id, u.username, u.email, u.title, u.num_posts, u.admin_note, g.g_id, g.g_user_title FROM '.$db->prefix.'users AS u LEFT JOIN '.$db->prefix.'groups AS g ON g.g_id=u.group_id WHERE u.id>1'.(!empty($conditions) ? ' AND '.implode(' AND ', $conditions) : '').' ORDER BY '.$db->escape($order_by).' '.$db->escape($direction).' LIMIT '.$start_from.', 50') or error('Unable to fetch user info', __FILE__, __LINE__, $db->error());
-	if ($db->has_rows($result))
+	if ($db->num_rows($result))
 	{
 		while ($user_data = $db->fetch_assoc($result))
 		{
@@ -897,7 +900,11 @@ else if (isset($_GET['find_user']))
 <?php if ($can_action): ?>			<p class="conr modbuttons"><a href="#" onclick="return select_checkboxes('search-users-form', this, '<?php echo $lang_admin_users['Unselect all'] ?>')"><?php echo $lang_admin_users['Select all'] ?></a> <?php if ($can_ban) : ?><input type="submit" name="ban_users" value="<?php echo $lang_admin_users['Ban'] ?>" /><?php endif; if ($can_delete) : ?><input type="submit" name="delete_users" value="<?php echo $lang_admin_users['Delete'] ?>" /><?php endif; if ($can_move) : ?><input type="submit" name="move_users" value="<?php echo $lang_admin_users['Change group'] ?>" /><?php endif; ?></p>
 <?php endif; ?>
 		</div>
-		<?php echo $crumbs ?>
+		<ul class="crumbs">
+			<li><a href="admin_index.php"><?php echo $lang_admin_common['Admin'].' '.$lang_admin_common['Index'] ?></a></li>
+			<li><span>»&#160;</span><a href="admin_users.php"><?php echo $lang_admin_common['Users'] ?></a></li>
+			<li><span>»&#160;</span><strong><?php echo $lang_admin_users['Results head'] ?></strong></li>
+		</ul>
 		<div class="clearer"></div>
 	</div>
 </div>
@@ -960,6 +967,10 @@ else
 								<tr>
 									<th scope="row"><?php echo $lang_admin_users['MSN label'] ?></th>
 									<td><input type="text" name="form[msn]" size="30" maxlength="50" tabindex="9" /></td>
+								</tr>
+								<tr>
+									<th scope="row"><?php echo $lang_admin_users['AOL label'] ?></th>
+									<td><input type="text" name="form[aim]" size="20" maxlength="20" tabindex="10" /></td>
 								</tr>
 								<tr>
 									<th scope="row"><?php echo $lang_admin_users['Yahoo label'] ?></th>
